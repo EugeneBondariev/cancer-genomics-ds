@@ -1,10 +1,12 @@
 from __future__ import annotations
 """
-Downloads TCGA BRCA datasets from the UCSC Xena GDC hub.
-Source: https://xenabrowser.net/datapages/?cohort=GDC%20TCGA%20Breast%20Cancer%20(BRCA)
+Downloads TCGA BRCA datasets from UCSC Xena hubs.
+GDC hub: https://xenabrowser.net/datapages/?cohort=GDC%20TCGA%20Breast%20Cancer%20(BRCA)
+TCGA legacy hub: https://tcga.xenahubs.net (PAM50 clinical matrix)
 Run: python -m src.data.fetch_data
 """
 
+import gzip
 import logging
 
 import requests
@@ -16,16 +18,24 @@ logger = logging.getLogger(__name__)
 
 _GDC_BASE = "https://gdc.xenahubs.net/download"
 
+# PAM50 subtypes are in the legacy TCGA hub, not GDC — different URL pattern.
+_TCGA_LEGACY = {
+    DataFile.PAM50_CLINICAL: "https://tcga.xenahubs.net/download/TCGA.BRCA.sampleMap/BRCA_clinicalMatrix",
+}
+
 
 def _fetch(dataset: DataFile) -> None:
     dest = raw_file(dataset)
     if dest.exists():
         logger.info("Already present — skipping %s", dest.name)
         return
+    url = _TCGA_LEGACY.get(dataset) or f"{_GDC_BASE}/{dest.name}"
     logger.info("Downloading %s ...", dataset.name)
-    with requests.get(f"{_GDC_BASE}/{dest.name}", stream=True, timeout=120) as r:
+    needs_gzip = dataset in _TCGA_LEGACY
+    opener = gzip.open if needs_gzip else open
+    with requests.get(url, stream=True, timeout=120) as r:
         r.raise_for_status()
-        with open(dest, "wb") as f:
+        with opener(dest, "wb") as f:
             for chunk in r.iter_content(chunk_size=65536):
                 f.write(chunk)
     mb = dest.stat().st_size / 1_048_576
