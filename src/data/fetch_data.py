@@ -1,10 +1,11 @@
-from __future__ import annotations
 """
 Downloads TCGA BRCA datasets from UCSC Xena hubs.
 GDC hub: https://xenabrowser.net/datapages/?cohort=GDC%20TCGA%20Breast%20Cancer%20(BRCA)
 TCGA legacy hub: https://tcga.xenahubs.net (PAM50 clinical matrix)
 Run: python -m src.data.fetch_data
 """
+
+from __future__ import annotations
 
 import gzip
 import logging
