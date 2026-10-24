@@ -1,8 +1,11 @@
 """
 One-vs-rest differential gene expression for PAM50 breast cancer subtypes.
 
-Applies log2(counts+1) normalization, runs Welch's t-test per gene per subtype
-vs all remaining samples, and corrects for multiple testing via Benjamini-Hochberg FDR.
+Runs Welch's t-test per gene per subtype vs all remaining samples and corrects
+for multiple testing via Benjamini-Hochberg FDR.
+
+Expects log2(count+1)-normalized input — the UCSC Xena STAR counts file is already
+stored in that form, so no further normalization is applied inside this module.
 
 Run: python -m src.features.differential_expression
 """
@@ -68,14 +71,13 @@ def run_one_vs_rest(
     """
     Run one-vs-rest Welch's t-test DGE for every unique subtype in `labels`.
 
-    X: samples × genes DataFrame of raw counts (log2 normalization applied internally).
+    X: samples × genes DataFrame, log2(count+1)-normalized.
     labels: sample-aligned Series of subtype strings.
     Returns long-format DataFrame with one row per (gene, subtype) pair.
     """
     if not X.index.equals(labels.index):
         raise ValueError("X and labels must share the same index in the same order")
 
-    X_log = log2_normalize(X)
     subtypes = sorted(labels.unique())
 
     logger.info(
@@ -89,7 +91,7 @@ def run_one_vs_rest(
     for subtype in subtypes:
         n = int((labels == subtype).sum())
         logger.info("  %-8s  n=%d", subtype, n)
-        parts.append(_test_one_subtype(X_log=X_log, labels=labels, subtype=subtype))
+        parts.append(_test_one_subtype(X_log=X, labels=labels, subtype=subtype))
 
     result = pd.concat(parts, ignore_index=True)
     result["significant"] = (result["padj"] < fdr_threshold) & (
