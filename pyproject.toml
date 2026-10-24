@@ -15,6 +15,9 @@ addopts = "-q -m 'not e2e'"
 markers = [
     "e2e: end-to-end tests requiring a browser",
 ]
+filterwarnings = [
+    "ignore::UserWarning:umap",
+]
 
 [tool.ruff]
 line-length = 100
