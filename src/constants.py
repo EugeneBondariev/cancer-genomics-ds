@@ -7,12 +7,19 @@ class DataFile(StrEnum):
     STAR_COUNTS = "TCGA-BRCA.star_counts"
     SURVIVAL = "TCGA-BRCA.survival"
     PAM50_CLINICAL = "TCGA-BRCA.pam50-clinical"
+    CNV = "TCGA-BRCA.gistic2thresholded"
 
 
 class InterimFile(StrEnum):
     X = "star_filtered"
     LABELS = "labels"
     DE_RESULTS = "de_results"
+    PCA_EMBEDDINGS = "pca_embeddings"
+    UMAP_EMBEDDINGS = "umap_embeddings"
+    CNV_FILTERED = "cnv_filtered"
+    GENE_ANNOTATION = "gene_annotation"
+    SURVIVAL_MERGED = "survival_merged"
+    PROGNOSTIC_GENES = "prognostic_genes"
 
 
 # Ensembl base IDs (without version suffix) for canonical PAM50 subtype markers.
