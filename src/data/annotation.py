@@ -1,0 +1,104 @@
+"""
+Fetch HGNC gene symbols for Ensembl IDs via the MyGene.info REST API.
+
+Queries in batches of 1000 using POST to https://mygene.info/v3/query.
+Results are cached locally as a CSV to avoid re-fetching on every run.
+
+Run: python -m src.data.annotation
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from pathlib import Path
+
+import pandas as pd
+import requests
+
+from src.constants import InterimFile
+from src.paths import interim_file
+
+logger = logging.getLogger(__name__)
+
+_MYGENE_URL = "https://mygene.info/v3/query"
+_BATCH_SIZE = 1000
+_RETRY_DELAY = 2.0
+
+
+def fetch_gene_symbols(ensembl_ids: list[str], *, cache_path: Path) -> pd.DataFrame:
+    """
+    Map Ensembl base IDs to HGNC symbols and gene names via MyGene.info.
+
+    If cache_path exists, load from disk instead of querying the API.
+    Returns DataFrame with columns: ensembl_id, symbol, name.
+    Unmapped IDs are included with NaN for symbol and name.
+    """
+    if cache_path.exists():
+        logger.info("Loading gene annotation from cache: %s", cache_path.name)
+        return pd.read_csv(cache_path)
+
+    logger.info("Querying MyGene.info for %d Ensembl IDs ...", len(ensembl_ids))
+    rows: list[dict] = []
+
+    for start in range(0, len(ensembl_ids), _BATCH_SIZE):
+        batch = ensembl_ids[start : start + _BATCH_SIZE]
+        query_str = " ".join(batch)
+        try:
+            resp = requests.post(
+                _MYGENE_URL,
+                data={
+                    "q": query_str,
+                    "scopes": "ensembl.gene",
+                    "fields": "symbol,name",
+                    "species": "human",
+                    "size": len(batch),
+                },
+                timeout=60,
+            )
+            resp.raise_for_status()
+            hits = resp.json()
+        except requests.RequestException as exc:
+            logger.warning("MyGene.info batch %d failed: %s — skipping batch", start, exc)
+            for eid in batch:
+                rows.append({"ensembl_id": eid, "symbol": None, "name": None})
+            time.sleep(_RETRY_DELAY)
+            continue
+
+        found: set[str] = set()
+        for hit in hits:
+            query_id = hit.get("query", "")
+            found.add(query_id)
+            rows.append(
+                {
+                    "ensembl_id": query_id,
+                    "symbol": hit.get("symbol"),
+                    "name": hit.get("name"),
+                }
+            )
+        for eid in batch:
+            if eid not in found:
+                rows.append({"ensembl_id": eid, "symbol": None, "name": None})
+
+        logger.info("  batch %d–%d: %d mapped", start, start + len(batch), len(found))
+
+    df = pd.DataFrame(rows, columns=["ensembl_id", "symbol", "name"])
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(cache_path, index=False)
+    logger.info("Saved annotation to %s  (%d rows)", cache_path.name, len(df))
+    return df
+
+
+def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    X = pd.read_csv(interim_file(InterimFile.X), index_col=0)
+    raw_ids: list[str] = X.columns.tolist()
+    ensembl_ids = [eid.split(".")[0] for eid in raw_ids]
+    ensembl_ids = list(dict.fromkeys(ensembl_ids))
+
+    cache = interim_file(InterimFile.GENE_ANNOTATION)
+    fetch_gene_symbols(ensembl_ids=ensembl_ids, cache_path=cache)
+
+
+if __name__ == "__main__":
+    main()
