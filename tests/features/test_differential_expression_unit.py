@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from itertools import combinations
+
 import pandas as pd
 import pytest
-
-from itertools import combinations
 
 from src.features.differential_expression import (
     run_one_vs_rest,

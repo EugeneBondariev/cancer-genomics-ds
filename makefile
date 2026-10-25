@@ -37,14 +37,14 @@ install-dev: install
 freeze:
 	pip freeze > requirements.txt
 
-push: typecheck test
+push: lint typecheck test
 	git push
 
 typecheck:
 	$(PYTHON) -m mypy src/
 
 lint:
-	$(PYTHON) -m ruff check .
+	$(PYTHON) -m ruff check . --fix
 
 test:
 	$(PYTHON) -m pytest
