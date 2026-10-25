@@ -15,7 +15,6 @@ from __future__ import annotations
 import logging
 from typing import Literal
 
-import numpy as np
 import pandas as pd
 from scipy import stats
 from statsmodels.stats.multitest import multipletests
@@ -25,36 +24,30 @@ from src.paths import interim_file
 
 logger = logging.getLogger(__name__)
 
-_PSEUDOCOUNT: float = 1.0
-
-
-def log2_normalize(X: pd.DataFrame) -> pd.DataFrame:
-    """Log2(counts + 1) transform. Pseudocount prevents log(0) on zero-count genes."""
-    return pd.DataFrame(np.log2(X + _PSEUDOCOUNT), index=X.index, columns=X.columns)
-
 
 def _test_one_subtype(
-    X_log: pd.DataFrame,
+    X: pd.DataFrame,
     labels: pd.Series,
     subtype: str,
 ) -> pd.DataFrame:
     mask = labels == subtype
-    a = X_log.loc[mask].values    # (n_subtype, n_genes)
-    b = X_log.loc[~mask].values   # (n_rest,    n_genes)
+    a = X.loc[mask].values    # (n_subtype, n_genes)
+    b = X.loc[~mask].values   # (n_rest,    n_genes)
 
     _, pvals = stats.ttest_ind(a, b, equal_var=False, axis=0)
     _, padj, _, _ = multipletests(pvals, method="fdr_bh")
-    log2fc = X_log.loc[mask].mean() - X_log.loc[~mask].mean()
+    mean_subtype = X.loc[mask].mean()
+    mean_rest = X.loc[~mask].mean()
 
     return pd.DataFrame(
         {
-            "gene": X_log.columns.tolist(),
+            "gene": X.columns.tolist(),
             "subtype": subtype,
-            "log2fc": log2fc.values,
+            "log2fc": (mean_subtype - mean_rest).values,
             "pval": pvals,
             "padj": padj,
-            "mean_subtype": X_log.loc[mask].mean().values,
-            "mean_rest": X_log.loc[~mask].mean().values,
+            "mean_subtype": mean_subtype.values,
+            "mean_rest": mean_rest.values,
             "n_subtype": int(mask.sum()),
             "n_rest": int((~mask).sum()),
         }
@@ -91,7 +84,7 @@ def run_one_vs_rest(
     for subtype in subtypes:
         n = int((labels == subtype).sum())
         logger.info("  %-8s  n=%d", subtype, n)
-        parts.append(_test_one_subtype(X_log=X, labels=labels, subtype=subtype))
+        parts.append(_test_one_subtype(X=X, labels=labels, subtype=subtype))
 
     result = pd.concat(parts, ignore_index=True)
     result["significant"] = (result["padj"] < fdr_threshold) & (

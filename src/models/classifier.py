@@ -21,7 +21,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from src.constants import InterimFile
-from src.features.differential_expression import log2_normalize
 from src.paths import PROCESSED_DIR, interim_file
 
 logger = logging.getLogger(__name__)
@@ -106,7 +105,7 @@ def main() -> None:
     _raw = pd.read_csv(interim_file(InterimFile.LABELS), index_col=0).squeeze()
     labels: pd.Series = _raw  # type: ignore[assignment]
 
-    X = log2_normalize(X_raw)
+    X = X_raw
 
     logger.info("Building pipeline and running 5-fold CV ...")
     pipeline = build_pipeline()

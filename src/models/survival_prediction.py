@@ -16,7 +16,6 @@ import pandas as pd
 from lifelines import CoxPHFitter
 
 from src.constants import DataFile, InterimFile
-from src.features.differential_expression import log2_normalize
 from src.models.survival import merge_survival
 from src.paths import PROCESSED_DIR, interim_file, raw_file
 
@@ -124,7 +123,7 @@ def compute_risk_score(
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     X_raw = pd.read_csv(interim_file(InterimFile.X), index_col=0)
-    X_log = log2_normalize(X_raw)
+    X_log = X_raw
 
     _raw = pd.read_csv(interim_file(InterimFile.LABELS), index_col=0).squeeze()
     labels: pd.Series = _raw  # type: ignore[assignment]
