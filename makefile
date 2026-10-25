@@ -1,7 +1,7 @@
 PYTHON = python
 export PYTHONUNBUFFERED := 1
 
-.PHONY: help install install-dev freeze push typecheck lint test fetch dge
+.PHONY: help install install-dev freeze push typecheck lint test fetch dge embed classify survival annotate enrich predict
 
 help:
 	@echo ""
@@ -17,10 +17,16 @@ help:
 	@echo "  test             Run the test suite"
 	@echo ""
 	@echo "Data:"
-	@echo "  fetch            Download all raw data files from UCSC Xena"
+	@echo "  fetch            Download all raw data files from UCSC Xena / GDC"
+	@echo "  annotate         Fetch Ensembl→symbol annotation via MyGene.info"
 	@echo ""
 	@echo "Model:"
 	@echo "  dge              Run one-vs-rest differential expression"
+	@echo "  embed            PCA + UMAP dimensionality reduction"
+	@echo "  classify         Train PAM50 classifier (CV + full fit)"
+	@echo "  survival         Merge survival data and save interim file"
+	@echo "  enrich           Run GSEA pathway enrichment for all subtypes"
+	@echo "  predict          Select prognostic genes + fit Cox signature"
 
 install:
 	pip install -e .
@@ -48,3 +54,21 @@ fetch:
 
 dge:
 	$(PYTHON) -m src.features.differential_expression
+
+embed:
+	$(PYTHON) -m src.features.dimensionality_reduction
+
+classify:
+	$(PYTHON) -m src.models.classifier
+
+survival:
+	$(PYTHON) -m src.models.survival
+
+annotate:
+	$(PYTHON) -m src.data.annotation
+
+enrich:
+	$(PYTHON) -m src.features.pathway_enrichment
+
+predict:
+	$(PYTHON) -m src.models.survival_prediction
