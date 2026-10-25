@@ -22,7 +22,7 @@ from src.paths import interim_file
 logger = logging.getLogger(__name__)
 
 _MYGENE_URL = "https://mygene.info/v3/query"
-_BATCH_SIZE = 1000
+_BATCH_SIZE = 500
 _RETRY_DELAY = 2.0
 
 
@@ -43,16 +43,15 @@ def fetch_gene_symbols(ensembl_ids: list[str], *, cache_path: Path) -> pd.DataFr
 
     for start in range(0, len(ensembl_ids), _BATCH_SIZE):
         batch = ensembl_ids[start : start + _BATCH_SIZE]
-        query_str = " ".join(batch)
         try:
             resp = requests.post(
                 _MYGENE_URL,
                 data={
-                    "q": query_str,
+                    "q": "\n".join(batch),
                     "scopes": "ensembl.gene",
                     "fields": "symbol,name",
                     "species": "human",
-                    "size": len(batch),
+                    "size": 1,
                 },
                 timeout=60,
             )
