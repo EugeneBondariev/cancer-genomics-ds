@@ -20,6 +20,7 @@ class InterimFile(StrEnum):
     GENE_ANNOTATION = "gene_annotation"
     SURVIVAL_MERGED = "survival_merged"
     PROGNOSTIC_GENES = "prognostic_genes"
+    PAIRWISE_RESULTS = "pairwise_results"
 
 
 # Ensembl base IDs (without version suffix) for canonical PAM50 subtype markers.

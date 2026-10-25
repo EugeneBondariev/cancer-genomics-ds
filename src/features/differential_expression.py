@@ -1,5 +1,5 @@
 """
-One-vs-rest differential gene expression for PAM50 breast cancer subtypes.
+One-vs-rest and pairwise differential gene expression for PAM50 breast cancer subtypes.
 
 Runs Welch's t-test per gene per subtype vs all remaining samples and corrects
 for multiple testing via Benjamini-Hochberg FDR.
@@ -13,6 +13,7 @@ Run: python -m src.features.differential_expression
 from __future__ import annotations
 
 import logging
+from itertools import combinations
 from typing import Literal
 
 import pandas as pd
@@ -102,6 +103,80 @@ def run_one_vs_rest(
     return result
 
 
+def run_pairwise(
+    X: pd.DataFrame,
+    labels: pd.Series,
+    *,
+    fdr_threshold: float = 0.05,
+    log2fc_threshold: float = 1.0,
+) -> pd.DataFrame:
+    """
+    Run all pairwise Welch's t-test DGE comparisons between subtypes.
+
+    X: samples × genes DataFrame, log2(count+1)-normalized.
+    labels: sample-aligned Series of subtype strings.
+    Returns long-format DataFrame with one row per (gene, subtype_a, subtype_b) pair.
+    log2fc = mean(subtype_a) - mean(subtype_b); positive means higher in subtype_a.
+    Subtypes are sorted alphabetically so each pair appears exactly once.
+    """
+    if not X.index.equals(labels.index):
+        raise ValueError("X and labels must share the same index in the same order")
+
+    subtypes = sorted(labels.unique())
+    pairs = list(combinations(subtypes, 2))
+
+    logger.info(
+        "Pairwise DGE: %d pairs × %d genes = %d tests",
+        len(pairs),
+        X.shape[1],
+        len(pairs) * X.shape[1],
+    )
+
+    parts: list[pd.DataFrame] = []
+    for subtype_a, subtype_b in pairs:
+        mask_a = labels == subtype_a
+        mask_b = labels == subtype_b
+        n_a = int(mask_a.sum())
+        n_b = int(mask_b.sum())
+        logger.info("  %-8s vs %-8s  n=(%d, %d)", subtype_a, subtype_b, n_a, n_b)
+
+        a = X.loc[mask_a].values
+        b = X.loc[mask_b].values
+
+        _, pvals = stats.ttest_ind(a, b, equal_var=False, axis=0)
+        _, padj, _, _ = multipletests(pvals, method="fdr_bh")
+        mean_a = X.loc[mask_a].mean()
+        mean_b = X.loc[mask_b].mean()
+
+        parts.append(pd.DataFrame({
+            "gene": X.columns.tolist(),
+            "subtype_a": subtype_a,
+            "subtype_b": subtype_b,
+            "log2fc": (mean_a - mean_b).values,
+            "pval": pvals,
+            "padj": padj,
+            "mean_a": mean_a.values,
+            "mean_b": mean_b.values,
+            "n_a": n_a,
+            "n_b": n_b,
+        }))
+
+    result = pd.concat(parts, ignore_index=True)
+    result["significant"] = (result["padj"] < fdr_threshold) & (
+        result["log2fc"].abs() >= log2fc_threshold
+    )
+
+    n_sig = int(result["significant"].sum())
+    logger.info(
+        "Significant pairs (FDR<%.2f, |log2FC|≥%.1f): %d / %d",
+        fdr_threshold,
+        log2fc_threshold,
+        n_sig,
+        len(result),
+    )
+    return result
+
+
 def top_de_genes(
     results: pd.DataFrame,
     *,
@@ -134,10 +209,16 @@ def main() -> None:
     X = pd.read_csv(interim_file(InterimFile.X), index_col=0)
     _raw = pd.read_csv(interim_file(InterimFile.LABELS), index_col=0).squeeze()
     labels: pd.Series = _raw  # type: ignore[assignment]  # squeeze() return type is overly broad
+
     results = run_one_vs_rest(X=X, labels=labels)
     out = interim_file(InterimFile.DE_RESULTS)
     results.to_csv(out, index=False)
     logger.info("Saved %s  (%d rows)", out.name, len(results))
+
+    pairwise = run_pairwise(X=X, labels=labels)
+    out_pw = interim_file(InterimFile.PAIRWISE_RESULTS)
+    pairwise.to_csv(out_pw, index=False)
+    logger.info("Saved %s  (%d rows)", out_pw.name, len(pairwise))
 
 
 if __name__ == "__main__":
