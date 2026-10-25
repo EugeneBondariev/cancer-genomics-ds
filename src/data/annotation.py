@@ -89,6 +89,25 @@ def fetch_gene_symbols(ensembl_ids: list[str], *, cache_path: Path) -> pd.DataFr
     return df
 
 
+def annotate_de_results(
+    results: pd.DataFrame,
+    annotation: pd.DataFrame,
+    *,
+    gene_col: str = "gene",
+) -> pd.DataFrame:
+    """
+    Add a 'symbol' column to a DE results DataFrame by joining with annotation.
+
+    annotation: DataFrame with columns 'ensembl_id' and 'symbol' (from fetch_gene_symbols).
+    Returns a copy; rows without a mapping get NaN in 'symbol'.
+    """
+    out = results.copy()
+    sym_map = annotation.dropna(subset=["symbol"]).set_index("ensembl_id")["symbol"]
+    base_ids = out[gene_col].str.split(".").str[0]
+    out["symbol"] = base_ids.map(sym_map)
+    return out
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     X = pd.read_csv(interim_file(InterimFile.X), index_col=0)

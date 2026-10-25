@@ -65,8 +65,13 @@ def plot_volcano(
 
     to_label = df.loc[df["significant"]].nsmallest(n_label, "padj")
     for _, row in to_label.iterrows():
+        label = (
+            row["symbol"]
+            if "symbol" in row.index and pd.notna(row["symbol"])
+            else row["gene"].split(".")[0][4:].lstrip("0")
+        )
         ax.annotate(
-            row["gene"],
+            label,
             xy=(row["log2fc"], row["neg_log10_padj"]),
             fontsize=5.5,
             ha="left" if row["log2fc"] > 0 else "right",
@@ -85,7 +90,7 @@ def plot_all_volcanos(
     fdr_threshold: float = 0.05,
     log2fc_threshold: float = 1.0,
     n_label: int = 8,
-    ncols: int = 3,
+    ncols: int = 1,
 ) -> plt.Figure:
     """Grid of volcano plots, one panel per subtype."""
     subtypes = sorted(results["subtype"].unique())
