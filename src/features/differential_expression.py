@@ -202,7 +202,7 @@ def top_de_genes(
         sig = sig.loc[sig["log2fc"] < 0]
     return (
         sig.groupby("subtype", sort=True)
-        .apply(lambda g: g.nsmallest(n, "padj"), include_groups=False)
+        .apply(lambda g: g.nsmallest(n, "padj"), include_groups=False)  # type: ignore[call-overload]  # pandas 2.2+, stubs lag
         .reset_index(level=0)
         .reset_index(drop=True)
     )
