@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def synthetic_expression() -> tuple[pd.DataFrame, pd.Series]:
     """
     150 samples × 100 genes; 3 subtypes (A/B/C, 50 each).

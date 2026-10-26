@@ -82,6 +82,13 @@ def fetch_gene_symbols(ensembl_ids: list[str], *, cache_path: Path) -> pd.DataFr
         logger.info("  batch %d–%d: %d mapped", start, start + len(batch), len(found))
 
     df = pd.DataFrame(rows, columns=["ensembl_id", "symbol", "name"])
+    n_unmapped = int(df["symbol"].isna().sum())
+    logger.info(
+        "Mapped %d / %d Ensembl IDs to HGNC symbols (%.0f%% unmapped)",
+        len(df) - n_unmapped,
+        len(df),
+        100 * n_unmapped / len(df) if df.shape[0] else 0,
+    )
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(cache_path, index=False)
     logger.info("Saved annotation to %s  (%d rows)", cache_path.name, len(df))

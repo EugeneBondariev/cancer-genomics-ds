@@ -63,7 +63,10 @@ def plot_volcano(
     ax.axvline(log2fc_threshold, color="black", lw=0.8, ls="--", alpha=0.7)
     ax.axvline(-log2fc_threshold, color="black", lw=0.8, ls="--", alpha=0.7)
 
-    to_label = df.loc[df["significant"]].nsmallest(n_label, "padj")
+    to_label = pd.concat([
+        df.loc[sig_up].nsmallest(n_label, "padj"),
+        df.loc[sig_down].nsmallest(n_label, "padj"),
+    ])
     for _, row in to_label.iterrows():
         label = (
             row["symbol"]

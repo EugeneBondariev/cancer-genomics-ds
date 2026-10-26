@@ -123,6 +123,8 @@ def run_pairwise(
         raise ValueError("X and labels must share the same index in the same order")
 
     subtypes = sorted(labels.unique())
+    # C(5,2) = 5! / ((5-2)! * 2!) = 10
+    # AB, AC, AD, AE, BC, BD, BE, CD, CE, DE
     pairs = list(combinations(subtypes, 2))
 
     logger.info(
@@ -193,13 +195,15 @@ def top_de_genes(
     """
     sig = results.loc[results["significant"]].copy()
     if direction == "up":
+        # realistically, log2fc -> [1, 21]
         sig = sig.loc[sig["log2fc"] > 0]
     elif direction == "down":
+        # realistically, log2fc -> [-21, -1]
         sig = sig.loc[sig["log2fc"] < 0]
     return (
-        sig.sort_values("padj")
-        .groupby("subtype", sort=False)
-        .head(n)
+        sig.groupby("subtype", sort=True)
+        .apply(lambda g: g.nsmallest(n, "padj"), include_groups=False)
+        .reset_index(level=0)
         .reset_index(drop=True)
     )
 
@@ -210,15 +214,13 @@ def main() -> None:
     _raw = pd.read_csv(interim_file(InterimFile.LABELS), index_col=0).squeeze()
     labels: pd.Series = _raw  # type: ignore[assignment]  # squeeze() return type is overly broad
 
-    results = run_one_vs_rest(X=X, labels=labels)
-    out = interim_file(InterimFile.DE_RESULTS)
-    results.to_csv(out, index=False)
-    logger.info("Saved %s  (%d rows)", out.name, len(results))
-
-    pairwise = run_pairwise(X=X, labels=labels)
-    out_pw = interim_file(InterimFile.PAIRWISE_RESULTS)
-    pairwise.to_csv(out_pw, index=False)
-    logger.info("Saved %s  (%d rows)", out_pw.name, len(pairwise))
+    for df, key in [
+        (run_one_vs_rest(X=X, labels=labels),  InterimFile.DE_RESULTS),
+        (run_pairwise(X=X, labels=labels),     InterimFile.PAIRWISE_RESULTS),
+    ]:
+        out = interim_file(key)
+        df.to_csv(out, index=False)
+        logger.info("Saved %s  (%d rows)", out.name, len(df))
 
 
 if __name__ == "__main__":
