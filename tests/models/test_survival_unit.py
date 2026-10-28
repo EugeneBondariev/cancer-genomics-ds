@@ -20,7 +20,7 @@ def synthetic_survival() -> tuple[pd.Series, pd.DataFrame]:
     """
     rng = np.random.default_rng(99)
     n = 100
-    short_ids = [f"TCGA-XX-{i:04d}" for i in range(n)]
+    short_ids = [f"TCGA-XX-{i:04d}-01" for i in range(n)]
     full_ids = [f"TCGA-XX-{i:04d}-01A" for i in range(n)]
 
     groups = ["A"] * 50 + ["B"] * 50
