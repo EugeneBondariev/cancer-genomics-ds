@@ -36,8 +36,7 @@ def merge_survival(labels: pd.Series, raw_survival_df: pd.DataFrame) -> pd.DataF
     surv = raw_survival_df[["OS.time", "OS"]].copy()
 
     def _trim(s: str) -> str:
-        parts = s.split("-")
-        return "-".join(parts[:3]) if len(parts) >= 3 else s
+        return s[:-1] if s and s[-1].isalpha() else s
 
     surv.index = pd.Index([_trim(idx) for idx in surv.index], name=surv.index.name)
     surv = surv[~surv.index.duplicated(keep="first")]
